@@ -7,7 +7,7 @@
 #include <iterator>
 #include <sstream>
 
-#include "logging.h"
+#include "logging/logging.h"
 
 using std::string;
 

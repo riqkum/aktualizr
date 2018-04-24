@@ -11,7 +11,7 @@
 #include "json/json.h"
 
 #include "bootstrap.h"
-#include "logging.h"
+#include "logging/logging.h"
 #include "utilities/crypto.h"
 #include "utilities/httpclient.h"
 #include "utilities/utils.h"
