@@ -5,7 +5,7 @@
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
-#include "config.h"
+#include "config/config.h"
 
 struct AktualizrSecondaryNetConfig {
   in_port_t port{9030};

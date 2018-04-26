@@ -26,9 +26,9 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include <iostream>
 
-#include "aktualizr.h"
-#include "config.h"
+#include "config/config.h"
 #include "logging/logging.h"
+#include "primary/aktualizr.h"
 #include "utilities/utils.h"
 
 /*****************************************************************************/

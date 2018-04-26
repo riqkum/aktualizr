@@ -1,18 +1,16 @@
 #include "aktualizr.h"
 
-#include "timer.h"
-
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <sodium.h>
 
-#include "channel.h"
 #include "commands.h"
 #include "events.h"
 #include "eventsinterpreter.h"
+#include "http/httpclient.h"
 #include "sotauptaneclient.h"
 #include "storage/invstorage.h"
-#include "utilities/httpclient.h"
+#include "utilities/channel.h"
 
 Aktualizr::Aktualizr(Config &config) : config_(config) {
   if (sodium_init() == -1) {  // Note that sodium_init doesn't require a matching 'sodium_deinit'
@@ -20,13 +18,12 @@ Aktualizr::Aktualizr(Config &config) : config_(config) {
   }
 
   LOG_TRACE << "Seeding random number generator from /dev/urandom...";
-  Timer timer;
   unsigned int seed;
   std::ifstream urandom("/dev/urandom", std::ios::in | std::ios::binary);
   urandom.read(reinterpret_cast<char *>(&seed), sizeof(seed));
   urandom.close();
   std::srand(seed);  // seeds pseudo random generator with random number
-  LOG_TRACE << "... seeding complete in " << timer;
+  LOG_TRACE << "... seeding complete";
 }
 
 int Aktualizr::run() {
