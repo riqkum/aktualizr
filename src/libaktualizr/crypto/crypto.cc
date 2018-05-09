@@ -46,7 +46,7 @@ std::string Crypto::RSAPSSSign(ENGINE *engine, const std::string &private_key, c
     }
     // libp11 increments the private key reference for some reason, decrement
     // here to avoid leak later
-    EVP_PKEY_free(key.get());
+    //EVP_PKEY_free(key.get());
 
     rsa.reset(EVP_PKEY_get1_RSA(key.get()));
     if (rsa == nullptr) {
