@@ -13,9 +13,8 @@ python -m pip install -r "$1/requirements.txt"
 
 PORT=$("$1/../get_open_port.py")
 
-"$1/generator.py" -t uptane --signature-encoding base64 -o vectors --cjson json-subset
 # disable werkzeug debug pin which causes issues on Jenkins
-WERKZEUG_DEBUG_PIN=off "$1/server.py" -t uptane --signature-encoding base64 -P "$PORT" &
+WERKZEUG_DEBUG_PIN=off "$1/server.py" --hardware-id abc --ecu-identifier 1234 --signature-encoding base64 -P "$PORT" &
 trap 'kill %1' EXIT
 
 # wait for server to go up
