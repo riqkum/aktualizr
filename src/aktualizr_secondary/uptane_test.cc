@@ -53,7 +53,7 @@ TEST(aktualizr_secondary_uptane, credentialsPassing) {
   config.pacman.type = kNone;
 
   auto storage = INvStorage::newStorage(config.storage);
-  Uptane::Repository uptane(config, storage, http);
+  Uptane::Repository uptane(config, storage);
   SotaUptaneClient sota_client(config, NULL, uptane, storage, http);
   EXPECT_TRUE(sota_client.initialize());
 

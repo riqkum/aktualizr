@@ -50,6 +50,7 @@ class Version {
   Version() : version_(ANY_VERSION) {}
   explicit Version(int v) : version_(v) {}
   std::string RoleFileName(Role role) const;
+  int version() { return version_; }
 
  private:
   static const int ANY_VERSION = -1;
@@ -293,5 +294,15 @@ struct MetaPack {
   TimestampMeta image_timestamp;
   Snapshot image_snapshot;
 };
+
+struct RawMetaPack {
+  std::string director_root;
+  std::string director_targets;
+  std::string image_root;
+  std::string image_targets;
+  std::string image_timestamp;
+  std::string image_snapshot;
+};
+
 }  // namespace Uptane
 #endif  // AKTUALIZR_UPTANE_TUF_H_
