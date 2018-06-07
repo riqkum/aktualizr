@@ -41,9 +41,12 @@ int Aktualizr::run() {
   std::shared_ptr<INvStorage> storage = INvStorage::newStorage(config_.storage);
   storage->importData(config_.import);
   HttpClient http;
-  Uptane::Repository repo(config_, storage);
+  Uptane::DirectorRepository director_repo;
+  Uptane::ImagesRepository images_repo;
+  Uptane::Manifest uptane_manifest{config_, storage};
   Bootloader bootloader(config_.bootloader);
-  SotaUptaneClient uptane_client(config_, events_channel, repo, storage, http, bootloader);
+  SotaUptaneClient uptane_client(config_, events_channel, director_repo, images_repo, uptane_manifest, storage, http,
+                                 bootloader);
   uptane_client.runForever(commands_channel);
 
   return EXIT_SUCCESS;

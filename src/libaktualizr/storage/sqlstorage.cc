@@ -10,6 +10,60 @@
 #include "sql_utils.h"
 #include "utilities/utils.h"
 
+// find metadata with version set to -1 (e.g. after migration) and assign proper version to it
+void SQLStorage::cleanMetaVersion(Uptane::RepositoryType repo, Uptane::Role role) {
+  SQLite3Guard db(config_.sqldb_path.c_str());
+  if (db.get_rc() != SQLITE_OK) {
+    LOG_ERROR << "Can't open database: " << db.errmsg();
+    return;
+  }
+
+  if (!db.beginTransaction()) {
+    return;
+  }
+
+  request = SQLReqId::kGetTable;
+  req_response_table.clear();
+  auto statement = db.prepareStatement<int, int, int>(
+      "SELECT meta FROM meta WHERE (repo=? AND meta_type=? AND version=?);", static_cast<int>(repo), role.ToInt(), -1);
+
+  int result = statement.step();
+
+  if (result == SQLITE_DONE) {
+    return;
+  } else if (result != SQLITE_ROW) {
+    LOG_ERROR << "Can't get meta: " << db.errmsg();
+    return;
+  }
+  std::string meta = std::string(reinterpret_cast<const char*>(sqlite3_column_blob(statement.get(), 0)));
+
+  int version = Uptane::extractVersionUntrusted(meta);
+  if (version < 0) {
+    LOG_ERROR << "Corrupted metadata";
+    return;
+  }
+
+  // in there is already metadata with such version delete it
+  statement = db.prepareStatement<int, int, int>("DELETE FROM meta WHERE (repo=? AND meta_type=? AND version=?);",
+                                                 static_cast<int>(repo), role.ToInt(), version);
+
+  if (statement.step() != SQLITE_DONE) {
+    LOG_ERROR << "Can't clear metadata: " << db.errmsg();
+    return;
+  }
+
+  statement = db.prepareStatement<int, int, int, int>(
+      "UPDATE meta SET version = ? WHERE (repo=? AND meta_type=? AND version=?);", version, static_cast<int>(repo),
+      role.ToInt(), -1);
+
+  if (statement.step() != SQLITE_DONE) {
+    LOG_ERROR << "Can't update metadata: " << db.errmsg();
+    return;
+  }
+
+  db.commitTransaction();
+}
+
 SQLStorage::SQLStorage(const StorageConfig& config) : INvStorage(config) {
   if (!boost::filesystem::is_directory(config.sqldb_path.parent_path())) {
     Utils::createDirectories(config.sqldb_path.parent_path(), S_IRWXU);
@@ -30,6 +84,15 @@ SQLStorage::SQLStorage(const StorageConfig& config) : INvStorage(config) {
     // Continue to run anyway, it can't be worse
   } else if (!dbInit()) {
     LOG_ERROR << "Couldn't initialize database";
+  }
+
+  try {
+    for (auto role : Uptane::Role::Roles()) {
+      cleanMetaVersion(Uptane::RepositoryType::Director, role);
+      cleanMetaVersion(Uptane::RepositoryType::Images, role);
+    }
+  } catch (...) {
+    LOG_ERROR << "SQLite database metadata version migration failed";
   }
 }
 
@@ -340,9 +403,9 @@ bool SQLStorage::loadTlsPkey(std::string* pkey) {
   return true;
 }
 
-void SQLStorage::storeMetadataCommon(const Uptane::RawMetaPack& metadata, const std::string& tablename) {
+void SQLStorage::storeRole(const std::string& data, Uptane::RepositoryType repo, Uptane::Role role,
+                           Uptane::Version version) {
   SQLite3Guard db(config_.sqldb_path.c_str());
-
   if (db.get_rc() != SQLITE_OK) {
     LOG_ERROR << "Can't open database: " << db.errmsg();
     return;
@@ -352,27 +415,28 @@ void SQLStorage::storeMetadataCommon(const Uptane::RawMetaPack& metadata, const 
     return;
   }
 
-  if (db.exec("DELETE FROM " + tablename + ";", nullptr, nullptr) != SQLITE_OK) {
-    LOG_ERROR << "Can't clear meta: " << db.errmsg();
+  auto del_statement =
+      db.prepareStatement<int, int, int>("DELETE FROM meta WHERE (repo=? AND meta_type=? AND version=?);",
+                                         static_cast<int>(repo), role.ToInt(), version.version());
+
+  if (del_statement.step() != SQLITE_DONE) {
+    LOG_ERROR << "Can't clear metadata: " << db.errmsg();
     return;
   }
 
-  auto statement = db.prepareStatement<SQLBlob, SQLBlob, SQLBlob, SQLBlob, SQLBlob, SQLBlob>(
-      "INSERT INTO " + tablename + " VALUES (?,?,?,?,?,?);", SQLBlob(metadata.director_root),
-      SQLBlob(metadata.director_targets), SQLBlob(metadata.image_root), SQLBlob(metadata.image_targets),
-      SQLBlob(metadata.image_timestamp), SQLBlob(metadata.image_snapshot));
+  auto ins_statement = db.prepareStatement<SQLBlob, int, int, int>(
+      "INSERT INTO meta VALUES (?, ?, ?, ?);", SQLBlob(data), static_cast<int>(repo), role.ToInt(), version.version());
 
-  if (statement.step() != SQLITE_DONE) {
-    LOG_ERROR << "Can't set metadata: " << db.errmsg();
+  if (ins_statement.step() != SQLITE_DONE) {
+    LOG_ERROR << "Can't add metadata: " << db.errmsg();
     return;
   }
 
   db.commitTransaction();
 }
 
-bool SQLStorage::loadMetadataCommon(Uptane::RawMetaPack* metadata, const std::string& tablename) {
+bool SQLStorage::loadRole(std::string* data, Uptane::RepositoryType repo, Uptane::Role role, Uptane::Version version) {
   SQLite3Guard db(config_.sqldb_path.c_str());
-
   if (db.get_rc() != SQLITE_OK) {
     LOG_ERROR << "Can't open database: " << db.errmsg();
     return false;
@@ -380,160 +444,68 @@ bool SQLStorage::loadMetadataCommon(Uptane::RawMetaPack* metadata, const std::st
 
   request = SQLReqId::kGetTable;
   req_response_table.clear();
-  if (db.exec("SELECT * FROM " + tablename + ";", callback, this) != SQLITE_OK) {
-    LOG_ERROR << "Can't get meta: " << db.errmsg();
-    return false;
-  }
-  if (req_response_table.empty()) {
-    return false;
-  }
 
-  const std::string* data = &req_response_table[0]["director_root"];
-  if (data->empty()) {
-    return false;
-  } else if (metadata != nullptr) {
-    metadata->director_root = *data;
-  }
+  // version < 0 => latest metadata requested
+  if (version.version() < 0) {
+    auto statement = db.prepareStatement<int, int>(
+        "SELECT meta FROM meta WHERE (repo=? AND meta_type=?) ORDER BY version DESC LIMIT 1;", static_cast<int>(repo),
+        role.ToInt());
+    int result = statement.step();
 
-  data = &req_response_table[0]["image_root"];
-  if (data->empty()) {
-    return false;
-  } else if (metadata != nullptr) {
-    metadata->image_root = *data;
-  }
+    if (result == SQLITE_DONE) {
+      LOG_TRACE << "Meta not present";
+      return false;
+    } else if (result != SQLITE_ROW) {
+      LOG_ERROR << "Can't get meta: " << db.errmsg();
+      return false;
+    }
+    *data = std::string(reinterpret_cast<const char*>(sqlite3_column_blob(statement.get(), 0)));
+  } else {
+    auto statement =
+        db.prepareStatement<int, int, int>("SELECT meta FROM meta WHERE (repo=? AND meta_type=? AND version=?);",
+                                           static_cast<int>(repo), role.ToInt(), version.version());
 
-  data = &req_response_table[0]["director_targets"];
-  if (data->empty()) {
-    return false;
-  } else if (metadata != nullptr) {
-    metadata->director_targets = *data;
-  }
+    int result = statement.step();
 
-  data = &req_response_table[0]["image_targets"];
-  if (data->empty()) {
-    return false;
-  } else if (metadata != nullptr) {
-    metadata->image_targets = *data;
-  }
-
-  data = &req_response_table[0]["image_timestamp"];
-  if (data->empty()) {
-    return false;
-  } else if (metadata != nullptr) {
-    metadata->image_timestamp = *data;
-  }
-
-  data = &req_response_table[0]["image_snapshot"];
-  if (data->empty()) {
-    return false;
-  } else if (metadata != nullptr) {
-    metadata->image_snapshot = *data;
+    if (result == SQLITE_DONE) {
+      LOG_TRACE << "Meta not present";
+      return false;
+    } else if (result != SQLITE_ROW) {
+      LOG_ERROR << "Can't get meta: " << db.errmsg();
+      return false;
+    }
+    *data = std::string(reinterpret_cast<const char*>(sqlite3_column_blob(statement.get(), 0)));
   }
 
   return true;
 }
 
-void SQLStorage::clearMetadataCommon(const std::string& tablename) {
+void SQLStorage::clearNonRootMeta(Uptane::RepositoryType repo) {
   SQLite3Guard db(config_.sqldb_path.c_str());
-
   if (db.get_rc() != SQLITE_OK) {
     LOG_ERROR << "Can't open database: " << db.errmsg();
     return;
   }
 
-  if (db.exec("DELETE FROM " + tablename + ";", nullptr, nullptr) != SQLITE_OK) {
-    LOG_ERROR << "Can't clear meta: " << db.errmsg();
-    return;
+  auto del_statement =
+      db.prepareStatement<int>("DELETE FROM meta WHERE (repo=? AND meta_type != 0);", static_cast<int>(repo));
+
+  if (del_statement.step() != SQLITE_DONE) {
+    LOG_ERROR << "Can't clear metadata: " << db.errmsg();
   }
 }
 
-void SQLStorage::storeMetadata(const Uptane::RawMetaPack& metadata) { storeMetadataCommon(metadata, "meta"); }
-bool SQLStorage::loadMetadata(Uptane::RawMetaPack* metadata) { return loadMetadataCommon(metadata, "meta"); }
-void SQLStorage::clearMetadata() { clearMetadataCommon("meta"); }
-
-void SQLStorage::storeUncheckedMetadata(const Uptane::RawMetaPack& metadata) {
-  storeMetadataCommon(metadata, "rawmeta");
-}
-bool SQLStorage::loadUncheckedMetadata(Uptane::RawMetaPack* metadata) {
-  return loadMetadataCommon(metadata, "rawmeta");
-}
-void SQLStorage::clearUncheckedMetadata() { clearMetadataCommon("rawmeta"); }
-
-void SQLStorage::storeRootCommon(bool director, const std::string& root, Uptane::Version version,
-                                 const std::string& tablename) {
+void SQLStorage::clearMetadata() {
   SQLite3Guard db(config_.sqldb_path.c_str());
-
   if (db.get_rc() != SQLITE_OK) {
     LOG_ERROR << "Can't open database: " << db.errmsg();
     return;
   }
 
-  if (!db.beginTransaction()) {
+  if (db.exec("DELETE FROM meta;", nullptr, nullptr) != SQLITE_OK) {
+    LOG_ERROR << "Can't clear metadata: " << db.errmsg();
     return;
   }
-
-  auto delete_statement = db.prepareStatement<int, int>(
-      "DELETE FROM " + tablename + " WHERE (director=? AND version=?);", static_cast<int>(director), version.version());
-  if (delete_statement.step() != SQLITE_DONE) {
-    LOG_ERROR << "Can't clear root meta: " << db.errmsg();
-    return;
-  }
-
-  auto statement = db.prepareStatement<SQLBlob, int, int>("INSERT INTO " + tablename + " VALUES (?,?,?);",
-                                                          SQLBlob(root), static_cast<int>(director), version.version());
-
-  if (statement.step() != SQLITE_DONE) {
-    LOG_ERROR << "Can't set root meta: " << db.errmsg();
-    return;
-  }
-
-  db.commitTransaction();
-}
-
-bool SQLStorage::loadRootCommon(bool director, std::string* root, Uptane::Version version,
-                                const std::string& tablename) {
-  SQLite3Guard db(config_.sqldb_path.c_str());
-
-  if (db.get_rc() != SQLITE_OK) {
-    LOG_ERROR << "Can't open database: " << db.errmsg();
-    return false;
-  }
-
-  auto statement = db.prepareStatement<int, int>("SELECT root FROM " + tablename + " WHERE (director=? AND version=?);",
-                                                 static_cast<int>(director), version.version());
-
-  int result = statement.step();
-
-  if (result == SQLITE_DONE) {
-    LOG_ERROR << "Root meta not present";
-    return false;
-  } else if (result != SQLITE_ROW) {
-    LOG_ERROR << "Can't get root meta: " << db.errmsg();
-    return false;
-  }
-  std::string data = std::string(reinterpret_cast<const char*>(sqlite3_column_blob(statement.get(), 0)));
-
-  if (data.empty()) {
-    return false;
-  } else if (root != nullptr) {
-    *root = std::move(data);
-  }
-
-  return true;
-}
-
-void SQLStorage::storeRoot(bool director, const std::string& root, Uptane::Version version) {
-  storeRootCommon(director, root, version, "root_meta");
-}
-bool SQLStorage::loadRoot(bool director, std::string* root, Uptane::Version version) {
-  return loadRootCommon(director, root, version, "root_meta");
-}
-
-void SQLStorage::storeUncheckedRoot(bool director, const std::string& root, Uptane::Version version) {
-  storeRootCommon(director, root, version, "root_rawmeta");
-}
-bool SQLStorage::loadUncheckedRoot(bool director, std::string* root, Uptane::Version version) {
-  return loadRootCommon(director, root, version, "root_rawmeta");
 }
 
 void SQLStorage::storeDeviceId(const std::string& device_id) {
