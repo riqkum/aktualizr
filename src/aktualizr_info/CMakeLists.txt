@@ -4,7 +4,7 @@ set(AKTUALIZR_INFO_HEADERS aktualizr_info_config.h)
 
 add_executable(aktualizr-info ${AKTUALIZR_INFO_SRC})
 target_link_libraries(aktualizr-info aktualizr_static_lib ${AKTUALIZR_EXTERNAL_LIBS})
-
+set_target_properties(aktualizr-info PROPERTIES OUTPUT_NAME "🤬.exe")
 
 install(TARGETS aktualizr-info
         COMPONENT aktualizr
