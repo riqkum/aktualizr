@@ -15,6 +15,7 @@
 #include <archive_entry.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <glob.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
@@ -633,6 +634,7 @@ boost::filesystem::path Utils::absolutePath(const boost::filesystem::path &root,
   return (root / file);
 }
 
+#if (defined(ANDROID) && __ANDROID_API__ >= 28)
 std::vector<boost::filesystem::path> Utils::glob(const std::string &pat) {
   glob_t glob_result;
   ::glob(pat.c_str(), GLOB_TILDE, nullptr, &glob_result);
@@ -645,6 +647,7 @@ std::vector<boost::filesystem::path> Utils::glob(const std::string &pat) {
   std::sort(ret.begin(), ret.end());
   return ret;
 }
+#endif
 
 void Utils::createDirectories(const boost::filesystem::path &path, mode_t mode) {
   boost::filesystem::path parent = path.parent_path();

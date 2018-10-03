@@ -1,0 +1,9 @@
+ANDROID_NDK_PATH=$HOME/Android/Sdk/ndk-bundle
+PREBUILT_LIBS=$ANDROID_NDK_PATH/prebuilt/android-x86_64
+cmake -DCMAKE_FIND_ROOT_PATH="$PREBUILT_LIBS/curl-7.58.0;$PREBUILT_LIBS/openssl-1.0.2o;$PREBUILT_LIBS/libsodium-1.0.11;$PREBUILT_LIBS/sqlite;$PREBUILT_LIBS/libarchive-3.3.3;$CMAKE_FIND_ROOT_PATH" \
+      -DBOOST_ROOT=$PREBUILT_LIBS/boost/1.67.0 \
+      -DBOOST_LIBRARYDIR=$PREBUILT_LIBS/boost/1.67.0/libs/llvm/x86_64 \
+      -DANDROID_PLATFORM=android-26 \
+      -DANDROID_ABI=x86_64 \
+      -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_PATH/build/cmake/android.toolchain.cmake \
+      -DANDROID_TOOLCHAIN=clang ..

@@ -71,6 +71,7 @@ find_package(sodium REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(Git)
 find_package(Asn1c REQUIRED)
+find_package(ZLIB)
 
 if(NOT AKTUALIZR_VERSION)
     if(GIT_EXECUTABLE)
@@ -260,6 +261,7 @@ include_directories(${SQLITE3_INCLUDE_DIRS})
 include_directories(${LIBP11_INCLUDE_DIR})
 include_directories(${sodium_INCLUDE_DIR})
 include_directories(${OPENSSL_INCLUDE_DIR})
+include_directories(${CURL_INCLUDE_DIR})
 include_directories(${LibArchive_INCLUDE_DIR})
 
 set_source_files_properties(third_party/jsoncpp/jsoncpp.cpp PROPERTIES COMPILE_FLAGS -w)
@@ -279,6 +281,9 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
 
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "4.9" OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.9")
         add_definitions(-Wshadow)
+        if (CMAKE_SYSTEM_NAME MATCHES "Android")
+            add_definitions(-Wno-sign-conversion) # boost/filesystem.hpp
+        endif ()
     endif ()
 
     if (WARNING_AS_ERROR)
@@ -330,7 +335,8 @@ set (AKTUALIZR_EXTERNAL_LIBS
     ${LIBP11_LIBRARIES}
     ${LIBDPKG_LIBRARIES}
     ${GLIB2_LIBRARIES}
-    ${SYSTEMD_LIBRARY})
+    ${SYSTEMD_LIBRARY}
+    ${ZLIB_LIBRARY})
 
 get_directory_property(hasParent PARENT_DIRECTORY)
 if(hasParent)

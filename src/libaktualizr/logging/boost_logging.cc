@@ -1,7 +1,17 @@
 #include "logging.h"
 #include "utilities/config_utils.h"
 
+#if (defined(ANDROID) && defined(__clang__))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wshorten-64-to-32"
 #include <boost/log/utility/setup/console.hpp>
+#pragma GCC diagnostic pop
+#else
+#include <boost/log/utility/setup/console.hpp>
+#endif
 
 namespace logging = boost::log;
 using boost::log::trivial::severity_level;
