@@ -427,4 +427,10 @@ foreach(compiler_flag ${custom_compiler_flags})
     endif()
 endforeach()
 
+if(ANDROID)
+    install(DIRECTORY cmake-modules DESTINATION .
+            COMPONENT library
+            FILES_MATCHING PATTERN "Findsodium.cmake")
+endif()
+
 # vim: set tabstop=4 shiftwidth=4 expandtab:

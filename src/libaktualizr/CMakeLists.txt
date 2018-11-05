@@ -43,3 +43,16 @@ endif (BUILD_OPCUA)
 
 target_include_directories(aktualizr_static_lib PUBLIC
     $<TARGET_PROPERTY:package_manager,INCLUDE_DIRECTORIES>)
+
+install(DIRECTORY . DESTINATION include/.
+        COMPONENT library
+        FILES_MATCHING PATTERN "*.h"
+        PATTERN bootstrap EXCLUDE
+        PATTERN opcuabridge EXCLUDE
+        PATTERN socket_activation EXCLUDE)
+install(DIRECTORY ../../third_party/jsoncpp/json DESTINATION include/.
+        COMPONENT library
+        FILES_MATCHING PATTERN "*.h")
+install(TARGETS aktualizr_static_lib
+        COMPONENT library
+        DESTINATION lib)
