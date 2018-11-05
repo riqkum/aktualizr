@@ -147,9 +147,7 @@ KeyManagerConfig Config::keymanagerConfig() const {
 void Config::postUpdateValues() {
   logger_set_threshold(logger);
 
-  if (provision.provision_path.empty()) {
-    provision.mode = ProvisionMode::kImplicit;
-  }
+  provision.mode = provision.provision_path.empty() ? ProvisionMode::kImplicit : ProvisionMode::kAutomatic;
 
   if (tls.server.empty()) {
     if (!tls.server_url_path.empty()) {
