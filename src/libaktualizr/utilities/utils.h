@@ -41,8 +41,11 @@ struct Utils {
   static int shell(const std::string &command, std::string *output, bool include_stderr = false);
   static boost::filesystem::path absolutePath(const boost::filesystem::path &root, const boost::filesystem::path &file);
   static void setSocketPort(sockaddr_storage *addr, in_port_t port);
-#if (defined(ANDROID) && __ANDROID_API__ >= 28)
+#if defined(ANDROID)
+#if (__ANDROID_API__ >= 28)
   static std::vector<boost::filesystem::path> glob(const std::string &pat);
+#endif
+  static void setSafeTempRootPrefix(const std::string &prefix);
 #endif
   static void createDirectories(const boost::filesystem::path &path, mode_t mode);
 };

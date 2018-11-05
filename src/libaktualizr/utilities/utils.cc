@@ -674,9 +674,19 @@ class SafeTempRoot {
 
  private:
   SafeTempRoot() {
-    boost::filesystem::path p =
-        boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("aktualizr-%%%%-%%%%-%%%%-%%%%");
-
+    boost::filesystem::path prefix;
+#if !defined(ANDROID)
+    prefix = boost::filesystem::temp_directory_path();
+#else
+    {
+      std::lock_guard<std::mutex> guard(SafeTempRoot::set_prefix_mutex_);
+      if (temp_root_prefix_.empty()) {
+        throw std::runtime_error("Empty temp root dir prefix");
+      }
+      prefix = temp_root_prefix_;
+    }
+#endif  // defined(ANDROID)
+    boost::filesystem::path p = prefix / boost::filesystem::unique_path("aktualizr-%%%%-%%%%-%%%%-%%%%");
     if (mkdir(p.c_str(), S_IRWXU) == -1) {
       throw std::runtime_error("could not create temporary directory root: " + p.native());
     }
@@ -692,7 +702,23 @@ class SafeTempRoot {
   }
 
   boost::filesystem::path path;
+#if defined(ANDROID)
+  friend void setSafeTempRootPrefix(const std::string &prefix);
+
+  static std::mutex set_prefix_mutex_;
+  static std::string temp_root_prefix_;
+#endif  // defined(ANDROID)
 };
+
+#if defined(ANDROID)
+std::mutex SafeTempRoot::set_prefix_mutex_;
+std::string SafeTempRoot::temp_root_prefix_;
+
+void setSafeTempRootPrefix(const std::string &prefix) {
+  std::lock_guard<std::mutex> guard(SafeTempRoot::set_prefix_mutex_);
+  SafeTempRoot::temp_root_prefix_ = prefix;
+}
+#endif  // defined(ANDROID)
 
 TemporaryFile::TemporaryFile(const std::string &hint)
     : tmp_name_(SafeTempRoot::Get() / boost::filesystem::unique_path("%%%%-%%%%-" + hint)) {}
