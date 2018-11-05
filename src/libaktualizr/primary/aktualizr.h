@@ -5,7 +5,9 @@
 #include <future>
 #include <memory>
 
+#ifdef AKTUALIZR_ENABLE_TESTS
 #include <gtest/gtest.h>
+#endif
 #include <boost/signals2.hpp>
 
 #include "config/config.h"
@@ -110,6 +112,7 @@ class Aktualizr {
   boost::signals2::connection SetSignalHandler(std::function<void(std::shared_ptr<event::BaseEvent>)>& handler);
 
  private:
+#ifdef AKTUALIZR_ENABLE_TESTS
   FRIEND_TEST(Aktualizr, FullNoUpdates);
   FRIEND_TEST(Aktualizr, FullWithUpdates);
   FRIEND_TEST(Aktualizr, FullMultipleSecondaries);
@@ -117,6 +120,7 @@ class Aktualizr {
   FRIEND_TEST(Aktualizr, DownloadWithUpdates);
   FRIEND_TEST(Aktualizr, InstallWithUpdates);
   FRIEND_TEST(Aktualizr, CampaignCheck);
+#endif
   Aktualizr(Config& config, std::shared_ptr<INvStorage> storage_in, std::shared_ptr<SotaUptaneClient> uptane_client_in,
             std::shared_ptr<event::Channel> sig_in);
   void systemSetup();

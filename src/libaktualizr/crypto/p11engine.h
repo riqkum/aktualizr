@@ -3,7 +3,9 @@
 
 #include <memory>
 
+#ifdef AKTUALIZR_ENABLE_TESTS
 #include <gtest/gtest.h>
+#endif
 #include <openssl/engine.h>
 #include <openssl/err.h>
 
@@ -74,7 +76,9 @@ class P11Engine {
   explicit P11Engine(P11Config config);
 
   friend class P11EngineGuard;
+#ifdef AKTUALIZR_ENABLE_TESTS
   FRIEND_TEST(crypto, findPkcsLibrary);
+#endif
 };
 
 class P11EngineGuard {

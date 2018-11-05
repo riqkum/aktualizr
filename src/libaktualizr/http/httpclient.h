@@ -2,7 +2,9 @@
 #define HTTPCLIENT_H_
 
 #include <curl/curl.h>
+#ifdef AKTUALIZR_ENABLE_TESTS
 #include <gtest/gtest.h>
+#endif
 #include <memory>
 #include "json/json.h"
 
@@ -38,7 +40,9 @@ class HttpClient : public HttpInterface {
   long http_code{};  // NOLINT
 
  private:
+#ifdef AKTUALIZR_ENABLE_TESTS
   FRIEND_TEST(GetTest, download_speed_limit);
+#endif
   /**
    * These are here to catch a common programming error where a Json::Value is
    * implicitly constructed from a std::string. By having an private overload

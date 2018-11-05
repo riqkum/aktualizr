@@ -7,7 +7,9 @@
 #include <utility>
 #include <vector>
 
+#ifdef AKTUALIZR_ENABLE_TESTS
 #include <gtest/gtest.h>
+#endif
 #include <boost/signals2.hpp>
 #include "json/json.h"
 
@@ -52,6 +54,7 @@ class SotaUptaneClient {
   void campaignAccept(const std::string &campaign_id);
 
  private:
+#ifdef AKTUALIZR_ENABLE_TESTS
   FRIEND_TEST(Aktualizr, FullNoUpdates);
   FRIEND_TEST(Aktualizr, FullMultipleSecondaries);
   FRIEND_TEST(Aktualizr, CheckWithUpdates);
@@ -68,6 +71,7 @@ class SotaUptaneClient {
   FRIEND_TEST(UptaneCI, CheckKeys);
   FRIEND_TEST(UptaneKey, Check);  // Note hacky name
   FRIEND_TEST(aktualizr_secondary_uptane, credentialsPassing);
+#endif
   friend class CheckForUpdate;       // for load tests
   friend class ProvisionDeviceTask;  // for load tests
 
