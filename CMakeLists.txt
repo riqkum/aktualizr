@@ -436,7 +436,7 @@ endforeach()
 if(ANDROID)
     install(DIRECTORY cmake-modules DESTINATION .
             COMPONENT library
-            FILES_MATCHING PATTERN "Findsodium.cmake")
+            FILES_MATCHING PATTERN "Find*.cmake")
 endif()
 
 # vim: set tabstop=4 shiftwidth=4 expandtab:

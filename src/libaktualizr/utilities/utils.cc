@@ -703,7 +703,7 @@ class SafeTempRoot {
 
   boost::filesystem::path path;
 #if defined(ANDROID)
-  friend void setSafeTempRootPrefix(const std::string &prefix);
+  friend void Utils::setSafeTempRootPrefix(const std::string &prefix);
 
   static std::mutex set_prefix_mutex_;
   static std::string temp_root_prefix_;
@@ -714,7 +714,7 @@ class SafeTempRoot {
 std::mutex SafeTempRoot::set_prefix_mutex_;
 std::string SafeTempRoot::temp_root_prefix_;
 
-void setSafeTempRootPrefix(const std::string &prefix) {
+void Utils::setSafeTempRootPrefix(const std::string &prefix) {
   std::lock_guard<std::mutex> guard(SafeTempRoot::set_prefix_mutex_);
   SafeTempRoot::temp_root_prefix_ = prefix;
 }
