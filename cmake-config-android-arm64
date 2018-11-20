@@ -1,5 +1,5 @@
 ANDROID_NDK_PATH=$HOME/Android/Sdk/ndk-bundle
-PREBUILT_LIBS=$ANDROID_NDK_PATH/prebuilt/android-arm64
+PREBUILT_LIBS=$ANDROID_NDK_PATH/prebuilt/android-arm64-v8a
 cmake -DCMAKE_FIND_ROOT_PATH="$PREBUILT_LIBS/curl;$PREBUILT_LIBS/openssl;$PREBUILT_LIBS/libsodium;$PREBUILT_LIBS/sqlite;$PREBUILT_LIBS/libarchive;$CMAKE_FIND_ROOT_PATH" \
       -DBOOST_ROOT=$PREBUILT_LIBS/boost/1.67.0 \
       -DBOOST_LIBRARYDIR=$PREBUILT_LIBS/boost/1.67.0/libs/llvm/arm64-v8a \
